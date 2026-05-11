@@ -1,14 +1,16 @@
-# pasteimg skill for Claude Code
+# Parallel Vision / 并行视觉
 
-Paste a Windows clipboard screenshot into Claude Code even when the selected main model cannot accept image input.
+A Claude Code skill for routing screenshot understanding through a separate vision-capable model while keeping the current main model unchanged.
 
-The skill saves the clipboard image to a temp PNG, sends it to a configurable vision-capable Anthropic-compatible model, and returns an ASCII-safe text description to the current Claude Code conversation.
+The skill saves a Windows clipboard image to a temp file, sends it to a configurable vision-capable Anthropic-compatible model, and returns an ASCII-safe text description to the current Claude Code conversation.
 
 ## Why
 
 Some third-party Claude Code model routes accept text but reject image input. It can also be wasteful to send screenshots directly to an expensive reasoning model.
 
-`pasteimg` lets you keep your main model unchanged, such as Opus, DeepSeek, Mimo Pro, or another coding model, while a separate cheaper vision-capable model handles screenshot understanding. The main model receives only the generated text description.
+Parallel Vision lets you keep your main model unchanged, such as Opus, DeepSeek, Mimo Pro, or another coding model, while a separate cheaper vision-capable model handles screenshot understanding. The main model receives only the generated text description.
+
+The project name is `parallel-vision`. The installed Claude Code skill is still named `pasteimg`, and the slash command is still `/pasteimg`.
 
 ## Install
 
@@ -26,7 +28,7 @@ To overwrite an existing install:
 powershell.exe -ExecutionPolicy Bypass -File .\install.ps1 -Force
 ```
 
-## Configure the vision model
+## Configure The Vision Model
 
 The vision model is independent from your current Claude Code model. Pick any model route that supports image input through an Anthropic-compatible `/v1/messages` API.
 
@@ -84,7 +86,7 @@ Vision model resolution order:
 Copy a screenshot or image, then run in Claude Code:
 
 ```text
-/pasteimg 读取这张图
+/pasteimg describe this screenshot
 ```
 
 The command returns:
@@ -99,7 +101,7 @@ PASTEIMG_DESCRIPTION_END
 
 The selected main model receives the text description and can continue the conversation without receiving image input directly.
 
-## Test without clipboard
+## Test Without Clipboard
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\pasteimg\scripts\pasteimg.ps1" -Describe -ImagePath "C:\path\to\image.png"
