@@ -1,0 +1,6 @@
+{
+  "visionModel": "your-low-cost-vision-model",
+  "maxTokens": 2048,
+  "baseUrl": "",
+  "descriptionPrompt": ""
+}
