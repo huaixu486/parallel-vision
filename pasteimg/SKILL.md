@@ -1,6 +1,6 @@
 ---
 name: pasteimg
-description: Paste screenshots or clipboard images into Claude Code on Windows. Use when the user invokes /pasteimg, asks to paste/read/analyze a screenshot from the Windows clipboard, wants to keep an expensive main model for reasoning, or needs image content while the selected main model cannot accept image input. Saves the image to temp, uses a configurable low-cost/vision-capable model, and returns an ASCII-safe text description so the main model can continue.
+description: Paste screenshots or clipboard images into Claude Code on Windows using a configurable vision sidecar model. Use when the user invokes /pasteimg, wants to keep an expensive or preferred main model for reasoning, wants to reduce image token cost, or needs image content while the selected main model cannot accept image input. Saves the image to temp, uses a configurable low-cost/vision-capable model, and returns an ASCII-safe text description so the main model can continue.
 ---
 
 # Paste Image
@@ -18,9 +18,12 @@ Use this skill for Windows clipboard image intake in Claude Code.
 
 ## Configuration
 
-The vision model is independent from the current main Claude Code model. Use any Anthropic-compatible model that supports image input: a cheaper vision model, a low-tier model, a provider-specific model, or a different route than the main reasoning model.
+The vision model is independent from the current main Claude Code model. There are two supported configuration modes:
 
-This is useful when the main model is expensive, text-only, or rejects direct image input. The helper spends image tokens only on the configured vision model and passes a text description back to the main model.
+1. Reuse the current Claude Code API settings and only change the vision model name.
+2. Use a separate vision API with its own `apiFormat`, `baseUrl`, `authToken`, and model.
+
+This is useful when the main model is expensive, text-only, or rejects direct image input. For example, a user can keep Opus, DeepSeek, Mimo Pro, or another coding model as the main model, while using Haiku, Mimo 2.5, or another lower-cost image-capable model to interpret screenshots. The helper spends image tokens only on the configured vision model and passes a text description back to the main model.
 
 Resolution order:
 
@@ -43,6 +46,9 @@ For portable installs, these can also be provided by environment variables:
 
 Optional settings:
 
+- `PASTEIMG_API_FORMAT` or `config.json` `apiFormat`: `anthropic` or `openai`
+- `PASTEIMG_BASE_URL` or `config.json` `baseUrl`
+- `PASTEIMG_AUTH_TOKEN` or `config.json` `authToken`
 - `PASTEIMG_MAX_TOKENS` or `config.json` `maxTokens`
 - `PASTEIMG_DESCRIPTION_PROMPT` or `config.json` `descriptionPrompt`
 - `PASTEIMG_CONFIG` to point at another JSON config file

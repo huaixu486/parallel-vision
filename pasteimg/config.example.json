@@ -1,6 +1,8 @@
 {
+  "apiFormat": "anthropic",
   "visionModel": "your-low-cost-vision-model",
   "maxTokens": 2048,
   "baseUrl": "",
+  "authToken": "",
   "descriptionPrompt": ""
 }

@@ -4,6 +4,7 @@ param(
     [string]$ImagePath,
     [string]$BaseUrl,
     [string]$AuthToken,
+    [string]$ApiFormat,
     [int]$MaxTokens = 0,
     [string]$SettingsPath,
     [string]$ConfigPath,
@@ -243,6 +244,37 @@ function Get-FirstInt {
     return $Default
 }
 
+function Normalize-ApiFormat {
+    param([string]$Value)
+    $format = (Get-FirstText @($Value, 'anthropic')).ToLowerInvariant()
+    switch ($format) {
+        'anthropic' { return 'anthropic' }
+        'anthropic-compatible' { return 'anthropic' }
+        'messages' { return 'anthropic' }
+        'openai' { return 'openai' }
+        'openai-compatible' { return 'openai' }
+        'chat-completions' { return 'openai' }
+        default { throw "Unsupported apiFormat '$Value'. Use 'anthropic' or 'openai'." }
+    }
+}
+
+function Resolve-EndpointUrl {
+    param(
+        [string]$BaseUrl,
+        [string]$ApiFormat
+    )
+    $clean = $BaseUrl.TrimEnd('/')
+    if ($ApiFormat -eq 'openai') {
+        if ($clean -match '/chat/completions$') { return $clean }
+        if ($clean -match '/v1$') { return $clean + '/chat/completions' }
+        return $clean + '/v1/chat/completions'
+    }
+
+    if ($clean -match '/messages$') { return $clean }
+    if ($clean -match '/v1$') { return $clean + '/messages' }
+    return $clean + '/v1/messages'
+}
+
 function Resolve-PasteImgConfig {
     $defaultConfigPath = Join-Path $skillRoot 'config.json'
     $effectiveConfigPath = Get-FirstText @($ConfigPath, $env:PASTEIMG_CONFIG, $defaultConfigPath)
@@ -264,19 +296,34 @@ function Resolve-PasteImgConfig {
         $settings.env.ANTHROPIC_MODEL
     )
 
+    $resolvedApiFormat = Normalize-ApiFormat (Get-FirstText @(
+        $ApiFormat,
+        $env:PASTEIMG_API_FORMAT,
+        $config.apiFormat,
+        $settings.env.PASTEIMG_API_FORMAT,
+        'anthropic'
+    ))
+
     $resolvedBaseUrl = Get-FirstText @(
         $BaseUrl,
+        $env:PASTEIMG_BASE_URL,
         $env:PASTEIMG_ANTHROPIC_BASE_URL,
+        $env:PASTEIMG_OPENAI_BASE_URL,
         $env:ANTHROPIC_BASE_URL,
+        $env:OPENAI_BASE_URL,
         $config.baseUrl,
         $settings.env.ANTHROPIC_BASE_URL
     )
 
     $resolvedToken = Get-FirstText @(
         $AuthToken,
+        $env:PASTEIMG_AUTH_TOKEN,
         $env:PASTEIMG_ANTHROPIC_AUTH_TOKEN,
+        $env:PASTEIMG_OPENAI_API_KEY,
         $env:ANTHROPIC_AUTH_TOKEN,
         $env:ANTHROPIC_API_KEY,
+        $env:OPENAI_API_KEY,
+        $config.authToken,
         $settings.env.ANTHROPIC_AUTH_TOKEN,
         $settings.env.ANTHROPIC_API_KEY
     )
@@ -315,6 +362,7 @@ function Resolve-PasteImgConfig {
 
     return [pscustomobject]@{
         VisionModel = $resolvedModel
+        ApiFormat = $resolvedApiFormat
         BaseUrl = $resolvedBaseUrl
         AuthToken = $resolvedToken
         MaxTokens = $resolvedMaxTokens
@@ -333,36 +381,64 @@ function Invoke-VisionDescription {
     $bytes = [System.IO.File]::ReadAllBytes($ImagePath)
     $imageBase64 = [Convert]::ToBase64String($bytes)
     $mediaType = Get-MediaType -Path $ImagePath
-    $url = $Config.BaseUrl.TrimEnd('/') + '/v1/messages'
+    $url = Resolve-EndpointUrl -BaseUrl $Config.BaseUrl -ApiFormat $Config.ApiFormat
 
-    $headers = @{
-        'Authorization' = 'Bearer ' + $Config.AuthToken
-        'anthropic-version' = '2023-06-01'
-        'content-type' = 'application/json'
-    }
-
-    $bodyObject = @{
-        model = $Config.VisionModel
-        max_tokens = $Config.MaxTokens
-        messages = @(
-            @{
-                role = 'user'
-                content = @(
-                    @{
-                        type = 'image'
-                        source = @{
-                            type = 'base64'
-                            media_type = $mediaType
-                            data = $imageBase64
+    if ($Config.ApiFormat -eq 'openai') {
+        $headers = @{
+            'Authorization' = 'Bearer ' + $Config.AuthToken
+            'content-type' = 'application/json'
+        }
+        $bodyObject = @{
+            model = $Config.VisionModel
+            max_tokens = $Config.MaxTokens
+            messages = @(
+                @{
+                    role = 'user'
+                    content = @(
+                        @{
+                            type = 'text'
+                            text = $Config.Prompt
+                        },
+                        @{
+                            type = 'image_url'
+                            image_url = @{
+                                url = "data:$mediaType;base64,$imageBase64"
+                            }
                         }
-                    },
-                    @{
-                        type = 'text'
-                        text = $Config.Prompt
-                    }
-                )
-            }
-        )
+                    )
+                }
+            )
+        }
+    }
+    else {
+        $headers = @{
+            'Authorization' = 'Bearer ' + $Config.AuthToken
+            'anthropic-version' = '2023-06-01'
+            'content-type' = 'application/json'
+        }
+        $bodyObject = @{
+            model = $Config.VisionModel
+            max_tokens = $Config.MaxTokens
+            messages = @(
+                @{
+                    role = 'user'
+                    content = @(
+                        @{
+                            type = 'image'
+                            source = @{
+                                type = 'base64'
+                                media_type = $mediaType
+                                data = $imageBase64
+                            }
+                        },
+                        @{
+                            type = 'text'
+                            text = $Config.Prompt
+                        }
+                    )
+                }
+            )
+        }
     }
 
     $body = $bodyObject | ConvertTo-Json -Depth 20 -Compress
@@ -413,6 +489,7 @@ else {
 
 Write-Output "PASTEIMG_IMAGE_PATH: $savedImagePath"
 Write-Output "PASTEIMG_VISION_MODEL: $($resolvedConfig.VisionModel)"
+Write-Output "PASTEIMG_API_FORMAT: $($resolvedConfig.ApiFormat)"
 Write-Output "PASTEIMG_DESCRIPTION_START"
 Write-Output $safeDescription
 Write-Output "PASTEIMG_DESCRIPTION_END"
