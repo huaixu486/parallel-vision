@@ -6,7 +6,7 @@ allowed-tools: Bash(powershell.exe:*)
 
 Use the `pasteimg` skill. This slash command is only a thin launcher for the skill's bundled script.
 
-!`powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\.claude\skills\pasteimg\scripts\pasteimg.ps1" -Describe`
+!`powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& ([IO.Path]::Combine([Environment]::GetFolderPath('UserProfile'), '.claude', 'skills', 'pasteimg', 'scripts', 'pasteimg.ps1')) -Describe"`
 
 Important:
 - Do not call the Read tool on the returned image path.
